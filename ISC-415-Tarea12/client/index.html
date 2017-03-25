@@ -1,0 +1,172 @@
+<html>
+<head>
+  <!-- Latest compiled and minified CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <style>
+    img {
+      border: 2px solid black;
+      width: 150px;
+      height: 225px;
+    }
+  </style>
+</head>
+<body>
+  <h1>movier</h1>
+  <form id="find">
+      <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" class="form-control" id="movieQuery" placeholder="The Usual Suspects">
+      </div>
+      <button id="submit" type="submit">Submit</button>
+  </form>
+  <div id="content"></div>
+  <script>
+      var xmlhttp = new XMLHttpRequest();
+      var apiKey = "973b8eba5939bf1d117c6aeb0bc4e86d";
+      var baseUrl = "https://api.themoviedb.org/3/search/movie?api_key=";
+      var movieLanguage = "&language=en-US";
+      var posterUrl = "http://image.tmdb.org/t/p/w150"
+
+      var get = function (movieName, pageNumber) {
+          var noImgPath = "static/images/noimg.png";
+          var page = "&page=" + pageNumber;
+          var query = "&query=" + movieName;
+          var xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
+          xmlhttp.open("GET", baseUrl + apiKey + movieLanguage + page + query, true);
+          xmlhttp.send();
+
+          xmlhttp.onreadystatechange = function () {
+              var container = document.getElementById('content');
+              while (container.hasChildNodes()) {
+                  container.removeChild(container.lastChild);
+              }
+              if (this.readyState == 4 && this.status == 200) {
+                  var movies = JSON.parse(this.responseText); 
+                  console.log(movies);
+                  var list = document.createElement('ul');
+                  list.id = 'movieResults';
+                  list.classList.add('list-group');
+                  for (let i = 0; i < movies.results.length; i++) {
+                      var movieInfo = []
+                      var saveButton = document.createElement('button');
+                      saveButton.classList.add('btn');
+                      saveButton.classList.add('btn-default');
+                      saveButton.innerHTML = 'Save Data';
+                      saveButton.setAttribute('type', 'button');
+                      saveButton.onclick = function() {
+                        post(movies.results[i]);
+                      }
+                      var divContainer = document.createElement("div");
+                      divContainer.classList.add('row');
+                      var listElement = document.createElement('li');
+                      listElement.classList.add('list-group-item');
+                      for (var j = 0; j < 4; j++) {
+                        var divElement = document.createElement('div');
+                        divElement.classList.add('col-md-2');
+                        movieInfo.push(divElement);
+                      }
+                      movieInfo[0].innerHTML = "Title: " + movies.results[i]["title"];
+                      movieInfo[1].innerHTML = "Release Date: " + movies.results[i]["release_date"];
+                      if(!movies.results[i]["poster_path"]) {
+                        movieInfo[2].innerHTML = "<img src=" + noImgPath + " class=img-rounded>";
+                      } else {
+                        movieInfo[2].innerHTML = "<img src=" + posterUrl + movies.results[i]["poster_path"] + " class=img-rounded>";
+                      }
+                      movieInfo[3].innerHTML = "Average Rating: " + movies.results[i]["vote_average"];
+                      divContainer.appendChild(movieInfo[2]);
+                      divContainer.appendChild(movieInfo[0]);
+                      divContainer.appendChild(movieInfo[1]);
+                      divContainer.appendChild(movieInfo[3]);
+                      divContainer.appendChild(saveButton);
+                      list.appendChild(divContainer);
+                  }
+                  var nameHeading = document.createElement("h1");
+                  nameHeading.innerHTML = "results for " + movieName;
+                  container.appendChild(nameHeading);
+                  container.appendChild(list);
+
+                  var pagination = document.createElement('nav');
+                  var pager = document.createElement('ul');
+                  var prev = document.createElement('li');
+                  var next = document.createElement('li');
+
+                  var prevLink = document.createElement('a');
+                  var nextLink = document.createElement('a');
+
+                  prevLink.innerHTML = "Previous";
+                  prevLink.onclick = function() {
+                    if (pageNumber > 1) {
+                      var movieQuery = document.getElementById('movieQuery');
+                      var movieName = movieQuery.value;
+                      get(movieName, pageNumber - 1);
+                    }
+                  }
+                  
+                  nextLink.innerHTML = "Next";
+                  nextLink.onclick = function() {
+                    if(pageNumber < movies["total_pages"]) {
+                      var movieQuery = document.getElementById('movieQuery');
+                      var movieName = movieQuery.value;
+                      get(movieName, pageNumber + 1);
+                    }
+                  }
+
+                  if(pageNumber === 1) {
+                    prev.classList.add('disabled')
+                  }
+                  if(pageNumber === movies["total_pages"]) {
+                    next.classList.add('disabled');
+                  }
+
+                  pagination.setAttribute('aria-label', '...');
+                  pager.classList.add('pager');
+                  prev.appendChild(prevLink);
+                  next.appendChild(nextLink);
+
+                  pagination.appendChild(pager);
+                  pager.appendChild(prev);
+                  pager.appendChild(next);
+
+                  container.appendChild(pagination);
+              }
+              else if (this.readyState == 4 && this.status == 404) {
+                  var todo = "todo";
+              }
+          };
+      }
+
+      var post = function (movie) {
+        var data = new FormData();
+        console.log(movie);
+        data.append('id', movie["id"]);
+        data.append('title', movie["title"]);
+        data.append('description', movie["overview"]);
+        if(movie.poster_path) {
+          data.append('poster', movie["poster_path"])
+        }
+
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.open("POST", "http://localhost:5000/movies", true);
+        xmlhttp.send(data);
+        xmlhttp.onreadystatechange = function () {
+            var container = document.getElementById('content');
+            if (this.readyState == 4 && this.status == 200) {
+                console.log(this.response);
+              }
+            else if (this.readyState == 4 && this.status == 404) {
+                console.log("Bad Request");
+            }
+        }
+      }
+
+      var form = document.getElementById('find');
+      form.onsubmit = function(evt) {
+          evt.preventDefault();
+          var movieQuery = document.getElementById('movieQuery');
+          var movieName = movieQuery.value;
+          get(movieName, 1);
+          movieName.value = '';
+      };
+  </script>
+</body>
+</html>
